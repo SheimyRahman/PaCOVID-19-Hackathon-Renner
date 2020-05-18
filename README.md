@@ -6,3 +6,7 @@ How to Run the game:
 ```
 $ go run main.go
 ```
+
+====
+
+![image_001](./image_001.png)
