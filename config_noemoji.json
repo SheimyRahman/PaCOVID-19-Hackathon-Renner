@@ -1,0 +1,14 @@
+{
+    "player": "P",
+    "startflag": "F",
+    "virus": "V",
+    "virus_blue": "B",
+    "wall": "#",
+    "dot": ".",
+    "wash": "X",
+    "food" : "O",
+    "space": " ",
+    "use_emoji": false,
+    "wash_duration_secs": 10,
+    "food_duration_secs": 10
+}

@@ -1,0 +1,15 @@
+{
+    "player": "😷",
+    "startflag": "🏁",
+    "virus": "👾",   
+    "virus_blue": "😱",
+    "wall": "  ",
+    "dot": "🔸",
+    "wash": "💦",
+    "death": "💀",
+    "food" : "🍒",
+    "space": "  ",
+    "use_emoji": true,
+    "wash_duration_secs": 10,
+    "food_duration_secs": 10
+}
