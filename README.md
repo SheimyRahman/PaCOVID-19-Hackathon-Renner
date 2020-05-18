@@ -13,4 +13,5 @@ $ go run main.go
 
 
 =====
+
 This game was developed and based on that tutorial: https://github.com/danicat/pacgo
