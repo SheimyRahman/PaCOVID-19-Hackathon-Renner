@@ -1,4 +1,4 @@
-# PaCOVID-19-Hackaton-Renner
+# PaCOVID-19-Hackathon-Renner
 Um Clone do PacMan integrado com OCI para Hackaton do bem
 
 
