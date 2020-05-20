@@ -36,12 +36,22 @@ type virus struct {
 
 type VirusStatus string
 
+type zombie struct {
+	position sprite
+	status   ZombieStatus
+}
+
+type ZombieStatus string
+
 const (
-	VirusStatusNormal VirusStatus = "Normal"
-	VirusStatusBlue   VirusStatus = "Blue"
+	VirusStatusNormal  VirusStatus  = "Normal"
+	VirusStatusBlue    VirusStatus  = "Blue"
+	ZombieStatusNormal ZombieStatus = "Normal"
+	ZombieStatusBlue   ZombieStatus = "Blue"
 )
 
 var virussStatusMx sync.RWMutex
+var zombiesStatusMx sync.RWMutex
 var washMx sync.Mutex
 var foodMx sync.Mutex
 
@@ -56,6 +66,9 @@ type config struct {
 	Death            string        `json:"death"`
 	Space            string        `json:"space"`
 	Food             string        `json:"food"`
+	Zombie           string        `json:"zombie"`
+	ZombieBlue       string        `json:"zombie_blue"`
+	People           string        `json:"people"`
 	UseEmoji         bool          `json:"use_emoji"`
 	WashDurationSecs time.Duration `json:"wash_duration_secs"`
 	FoodDurationSecs time.Duration `jason:"food_duration_secs"`
@@ -64,6 +77,7 @@ type config struct {
 var cfg config
 var player sprite
 var viruss []*virus
+var zombies []*zombie
 var maze []string
 var score int
 var numDots int
@@ -105,6 +119,8 @@ func loadMaze(file string) error {
 				player = sprite{row, col, row, col}
 			case 'V':
 				viruss = append(viruss, &virus{sprite{row, col, row, col}, VirusStatusNormal})
+			case 'Z':
+				zombies = append(zombies, &zombie{sprite{row, col, row, col}, ZombieStatusNormal})
 			case '.':
 				numDots++
 			}
@@ -133,6 +149,8 @@ func printScreen() {
 				fmt.Print(cfg.Dot)
 			case 'X':
 				fmt.Print(cfg.Wash)
+			case 'Y':
+				fmt.Print(cfg.People)
 			case 'O':
 				fmt.Print(cfg.Food)
 			case 'F':
@@ -157,6 +175,17 @@ func printScreen() {
 		}
 	}
 	virussStatusMx.RUnlock()
+
+	zombiesStatusMx.RLock()
+	for _, z := range zombies {
+		moveCursor(z.position.row, z.position.col)
+		if z.status == ZombieStatusNormal {
+			fmt.Printf(cfg.Zombie)
+		} else if z.status == ZombieStatusBlue {
+			fmt.Printf(cfg.ZombieBlue)
+		}
+	}
+	zombiesStatusMx.RUnlock()
 
 	moveCursor(len(maze)+1, 0)
 
@@ -255,6 +284,10 @@ func movePlayer(dir string) {
 		score += 10
 		removeDot(player.row, player.col)
 		go processWash()
+	case 'Y':
+		score -= 10
+		removeDot(player.row, player.col)
+		go processWash2()
 	case 'O':
 		score += 25
 		removeDot(player.row, player.col)
@@ -267,6 +300,14 @@ func updateViruss(viruss []*virus, virusStatus VirusStatus) {
 	defer virussStatusMx.Unlock()
 	for _, v := range viruss {
 		v.status = virusStatus
+	}
+}
+
+func updateZombies(zombies []*zombie, zombieStatus ZombieStatus) {
+	zombiesStatusMx.Lock()
+	defer zombiesStatusMx.Unlock()
+	for _, z := range zombies {
+		z.status = zombieStatus
 	}
 }
 
@@ -284,6 +325,21 @@ func processWash() {
 	washMx.Lock()
 	washTimer.Stop()
 	updateViruss(viruss, VirusStatusNormal)
+	washMx.Unlock()
+}
+
+func processWash2() {
+	washMx.Lock()
+	updateZombies(zombies, ZombieStatusBlue)
+	if washTimer != nil {
+		washTimer.Stop()
+	}
+	washTimer = time.NewTimer(time.Second * cfg.WashDurationSecs)
+	washMx.Unlock()
+	<-washTimer.C
+	washMx.Lock()
+	washTimer.Stop()
+	updateZombies(zombies, ZombieStatusNormal)
 	washMx.Unlock()
 }
 
@@ -320,6 +376,13 @@ func moveViruss() {
 	for _, v := range viruss {
 		dir := drawDirection()
 		v.position.row, v.position.col = makeMove(v.position.row, v.position.col, dir)
+	}
+}
+
+func moveZombies() {
+	for _, z := range zombies {
+		dir := drawDirection()
+		z.position.row, z.position.col = makeMove(z.position.row, z.position.col, dir)
 	}
 }
 
@@ -409,6 +472,31 @@ func main() {
 					virussStatusMx.RUnlock()
 					updateViruss([]*virus{v}, VirusStatusNormal)
 					v.position.row, v.position.col = v.position.startRow, v.position.startCol
+				}
+			}
+		}
+
+		moveZombies()
+
+		// process collisions
+		for _, z := range zombies {
+			if player.row == z.position.row && player.col == z.position.col {
+				zombiesStatusMx.RLock()
+				if z.status == ZombieStatusNormal {
+					lives = lives - 1
+					if lives != 0 {
+						moveCursor(player.row, player.col)
+						fmt.Print(cfg.Death)
+						moveCursor(len(maze)+2, 0)
+						zombiesStatusMx.RUnlock()
+						updateZombies(zombies, ZombieStatusNormal)
+						time.Sleep(1000 * time.Millisecond) //dramatic pause before reseting player position
+						player.row, player.col = player.startRow, player.startCol
+					}
+				} else if z.status == ZombieStatusBlue {
+					zombiesStatusMx.RUnlock()
+					updateZombies([]*zombie{z}, ZombieStatusNormal)
+					z.position.row, z.position.col = z.position.startRow, z.position.startCol
 				}
 			}
 		}
